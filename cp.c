@@ -25,7 +25,7 @@ void cp(const char *src, const char *dst);
 void get_name(char* name, const char *pathname);
 void cp_real(int fd, const char *src, const char *dst);
 
-uint32_t dst_mode;
+uint32_t dst_mode = O_RDWR | O_CREAT;
 uint32_t arg = 0;
 
 int main(int argc, char *argv[]){
@@ -43,6 +43,7 @@ int main(int argc, char *argv[]){
 						arg |= PARAM_R;
 						break;
 					case 'f':
+						dst_mode |= O_TRUNC;
 						arg |= PARAM_F;
 						break;
 					case 'l':
@@ -67,10 +68,6 @@ int main(int argc, char *argv[]){
 				MY_ERR("param too much");
 		}
 	}
-
-	dst_mode = O_RDWR | O_CREAT;
-	if(arg & PARAM_F)
-		dst_mode |= O_TRUNC;
 	cp(src, dst);
 
 	return 0;
@@ -99,6 +96,9 @@ void cp_real(int fd, const char *src, const char *dst){
 	}
 }
 
+char buf1[512];		
+char buf2[512];
+
 void cp(const char *src, const char *dst){
 	int srcfd = open(src, O_RDONLY);
 	if( srcfd < 0 ){
@@ -108,13 +108,13 @@ void cp(const char *src, const char *dst){
 	struct stat src_statbuf;
 	fstat(srcfd, &src_statbuf);
 	int dstfd = open(dst, O_RDONLY);
-	if( dstfd > 0 && !(arg & PARAM_F) ){
-		MY_ERR("dest file is exist");
-		goto exit;
-	}
 	struct stat dst_statbuf;
 	if(dstfd > 0)
 		fstat(dstfd, &dst_statbuf);
+	if( dstfd > 0 && !S_ISDIR(dst_statbuf.st_mode) && !(arg & PARAM_F) ){
+		MY_ERR("dest file is exist");
+		goto exit;
+	}
 	if( S_ISDIR(src_statbuf.st_mode) ){
 		if(arg & PARAM_V) printf("process directory %s\n", src);
 		if( !(arg & PARAM_R) ){
@@ -129,8 +129,6 @@ void cp(const char *src, const char *dst){
 		while( (ent = readdir(pDir) )!= NULL){
 			if( !strcmp(ent->d_name,".") || !strcmp(ent->d_name,"..") )
 				continue;
-			char buf1[512];		
-			char buf2[512];
 			strcpy(buf1, src);
 			strcat(buf1, "/");
 			strcat(buf1, ent->d_name);
@@ -142,35 +140,30 @@ void cp(const char *src, const char *dst){
 	}else{
 		if( dstfd > 0 && S_ISDIR(dst_statbuf.st_mode) ){
 			if(arg & PARAM_V) printf("process directory %s\n", dst);
-			char buf[512];
-			char name[512];
-			strcpy(buf, dst);
-			strcat(buf, "/");
-			get_name(name, src);
-			strcat(buf, name);
-			cp(src, buf);
+			strcpy(buf1, dst);
+			strcat(buf1, "/");
+			get_name(buf2, src);
+			strcat(buf1, buf2);
+			cp(src, buf1);
 		}else{
-			close(dstfd);
 			cp_real(srcfd, src, dst);
 		}
-		close(dstfd);
 	}
 exit:
 	close(srcfd);
+	close(dstfd);
 }
 
-void get_name(char* name, const char *pathname)
-{
-	int i = 0 , j = 0;
-
-	for (i = 0, j = 0; i < strlen(pathname); i++){
-		if (pathname[i] == '/'){
-			j = 0;
-			continue;
-		}
-		name[j++] = pathname[i];
-	}
-	name[j] = '\0';
+void get_name(char* name, const char *pathname){
+	if(pathname == NULL)
+		return;
+	size_t i = strlen(pathname);
+	int j;
+	for (j = i-1; j >= 0; --j)
+		if (pathname[j] == '/')
+			break;
+	strcpy(name, pathname+j+1);
+	name[i-j-1] = '\0';
 }
 
 void my_err(const char *err_string, int line){
