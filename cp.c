@@ -1,10 +1,19 @@
+/// \file cp.c
+/*
+  ------------------------------------
+  Create date : 2015-04-21 20:25
+  Modified date : 2015-04-21 20:25
+  Author : Sen1993
+  Email : gsen1993@gmail.com
+  ------------------------------------
+*/
+
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
 #include <linux/limits.h>
 #include <dirent.h>
-#include <time.h>
 #include <sys/stat.h>
 #include <errno.h>
 #include <sys/types.h>
